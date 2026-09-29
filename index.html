@@ -1355,6 +1355,25 @@ render();
 
 <!-- Kore.ai Web SDK Chat Widget -->
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
+<style>
+  /* Keep widget collapsed on load — only the bubble shows */
+  #kore-chat-window,
+  .kore-chat-window,
+  [id^="kore-"] .chat-window-container,
+  .chat-window-container { display: none !important; }
+  #kore-chat-window.kore-chat-open,
+  .kore-chat-window.kore-chat-open,
+  .chat-window-container.open { display: block !important; }
+
+  /* Ensure Kore.ai widget panel sits above ALL page elements (cart-drawer is z-index:80) */
+  #kore-chat-window,
+  .kore-chat-window,
+  .kore-widget-wrap,
+  .kore-chat-container,
+  [class*="kore-chat"],
+  [id*="kore-chat"],
+  [class*="kore-widget"] { z-index: 9999 !important; position: relative; }
+</style>
 <script>
   KoreChatSDK.chatConfig.botOptions.koreAPIUrl = 'https://platform.kore.ai/api/';
   KoreChatSDK.chatConfig.botOptions.koreSpeechAPIUrl = 'https://platform.kore.ai/api/';
@@ -1366,8 +1385,8 @@ render();
   KoreChatSDK.chatConfig.botOptions.clientSecret = '3zjFW8VpjzdAzYo61n/V6QJwIBX2cgUdp3+vYlRjjAA=';
   KoreChatSDK.chatConfig.botOptions.accountId = '6672c472ff0b8a7c305caf99';
   KoreChatSDK.chatConfig.botOptions.userIdentity = 'demo-user@stihl.de';
-  KoreChatSDK.chatConfig.botOptions.isAnonymous = true;
-  KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.KEY = 'cf7edca1dbd54295b6ba041ce4a33d9eaa0c70a98cba4176a6c94f2c9085f618sted';
+  KoreChatSDK.chatConfig.botOptions.JWTUrl = '/api/jwt-token';
+  KoreChatSDK.chatConfig.botOptions.openChatWindow = false;
   new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
 </script>
 
