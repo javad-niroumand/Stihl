@@ -1355,16 +1355,6 @@ render();
 
 <!-- Kore.ai Web SDK Chat Widget -->
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
-<style>
-  /* Ensure Kore.ai widget sits above ALL page elements (cart-drawer is z-index:80) */
-  #kore-chat-window,
-  .kore-chat-window,
-  .kore-widget-wrap,
-  .kore-chat-container,
-  [class*="kore-chat"],
-  [id*="kore-chat"],
-  [class*="kore-widget"] { z-index: 9999 !important; }
-</style>
 <script>
   KoreChatSDK.chatConfig.botOptions.koreAPIUrl = 'https://platform.kore.ai/api/';
   KoreChatSDK.chatConfig.botOptions.koreSpeechAPIUrl = 'https://platform.kore.ai/api/';
@@ -1377,8 +1367,14 @@ render();
   KoreChatSDK.chatConfig.botOptions.accountId = '6672c472ff0b8a7c305caf99';
   KoreChatSDK.chatConfig.botOptions.userIdentity = 'demo-user@stihl.de';
   KoreChatSDK.chatConfig.botOptions.JWTUrl = '/api/jwt-token';
-  KoreChatSDK.chatConfig.botOptions.openChatWindow = false;
   new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
+
+  // After SDK renders, boost z-index on whatever it injected
+  setTimeout(function() {
+    document.querySelectorAll('[id*="kore"],[class*="kore"],[id*="Kore"],[class*="Kore"]').forEach(function(el) {
+      el.style.setProperty('z-index', '9999', 'important');
+    });
+  }, 2000);
 </script>
 
 </body>
