@@ -1354,34 +1354,18 @@ render();
 </script>
 
 <!-- Kore.ai Web SDK Chat Widget -->
-<script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
+<!-- The SDK is hosted by Kore.ai's own platform — the API key is embedded in the URL -->
+<script src='https://usaz-prd-platform.kore.ai/api/platform/websdkjs/e83a73c7ec024bc6be1237e59a2d9142b062a87f31a14ee2905eb99869dff65bstda'></script>
 <script>
   addEventListener("load", () => {
     try {
-      if (typeof KoreChatSDK === 'undefined') {
-        console.warn('Kore.ai SDK not loaded');
-        return;
+      if (typeof KoreSDK !== 'undefined') {
+        KoreSDK.show(KoreSDK.chatConfig);
+      } else if (typeof KoreChatSDK !== 'undefined') {
+        new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
+      } else {
+        console.warn('Kore.ai SDK nicht geladen — bitte API-Key und URL prüfen.');
       }
-      // Build config from scratch — do not mutate nested sub-properties
-      // that may not exist yet on the default chatConfig object
-      const botOptions = {
-        koreAPIUrl: 'https://usaz-prd-platform.kore.ai/api/',
-        API_KEY_CONFIG: {
-          bootstrapURL: 'https://usaz-prd-platform.kore.ai/api/platform/websdk',
-          KEY: 'e83a73c7ec024bc6be1237e59a2d9142b062a87f31a14ee2905eb99869dff65bstda'
-        }
-      };
-
-      // Merge into SDK's chatConfig, preserving any defaults it ships with
-      const cfg = KoreChatSDK.chatConfig || {};
-      cfg.botOptions = Object.assign({}, cfg.botOptions || {}, botOptions);
-      cfg.botOptions.API_KEY_CONFIG = Object.assign(
-        {},
-        (cfg.botOptions.API_KEY_CONFIG || {}),
-        botOptions.API_KEY_CONFIG
-      );
-
-      new KoreChatSDK.chatWindow().show(cfg);
     } catch(e) {
       console.warn('Kore.ai SDK konnte nicht initialisiert werden:', e);
     }
