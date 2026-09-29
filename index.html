@@ -1356,7 +1356,144 @@ render();
 <!-- Kore.ai Web SDK Chat Widget -->
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
 <script>
-  addEventListener("load", () => {
+  // ── Kore.ai credentials ──────────────────────────────────────────────────
+  const KORE_CLIENT_ID     = 'cs-c36037e1-d5ca-54c9-a382-e8fdfede17a5';
+  const KORE_CLIENT_SECRET = 'A+YORHIjCDaKrkiKC5rIlPKehqS9OH+ZyVxjaHF7ClU=';
+  const KORE_BOT_ID        = 'st-da8db074-0fe4-55a8-8e6c-d31ecb2c5e88';
+  const KORE_BOT_NAME      = 'Stihl';
+  const KORE_ACCOUNT_ID    = '6a903f742aa33e385d9e1b34';
+  const KORE_USER_IDENTITY = 'demo-user@stihl.de';
+  const KORE_API_BASE      = 'https://usaz-prd-platform.kore.ai/api/';
+
+  // ── JWE RSA public key JWK (provided by Kore.ai platform) ───────────────
+  const JWE_PUBLIC_KEY_JWK = {
+    e:   'AQAB',
+    kid: '8fb43b6a-3f1a-450f-9860-86b8d54037b8',
+    kty: 'RSA',
+    alg: 'RSA-OAEP-256',
+    n:   '2sL_IfkoEE7I6bBia7ScURm6B48enliIGxH8xgt1IgAz9Ummnz1elLKOKjR23ElAP4q8vI3vUEEte0bMLitBY4kawOnEw9hQyOw2ulGGe7axcwN1LxnQZ8BKvjVOwO1BvpNX0oAYPWJbxVdNQaG323XieupFutjeYPehrbGFIpMWkUv565ZzF3rVjjU2ZY3OZ0gu7gfGCEIApPX2qF8A97iFBJ8q9rRopI0tf9PF-uCeG9TfkcI6fI-JYN7k0-DhiLr3iU9cvMC_4iosBk4ynFdSjKhaTiA3_BvI93KEcHkqyv7p3R00QcD0EwBsVdPG3Bl3NwveSOYmz1ERx8hL8Q'
+  };
+
+  // ── Minimal base64url helpers (no external deps) ─────────────────────────
+  function base64urlEncode(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (const b of bytes) binary += String.fromCharCode(b);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  function textToBase64url(str) {
+    return base64urlEncode(new TextEncoder().encode(str));
+  }
+
+  // ── Build a signed HS256 JWT then encrypt as JWE (RSA-OAEP-256/A128CBC-HS256) ──
+  async function generateKoreJWT() {
+    const crypto = window.crypto || window.msCrypto;
+    const subtle = crypto.subtle;
+
+    // 1. Sign inner JWT with HS256 (HMAC-SHA256 using clientSecret as key)
+    const now = Math.floor(Date.now() / 1000);
+    const jwtHeader  = { alg: 'HS256', typ: 'JWT' };
+    const jwtPayload = {
+      sub:         KORE_USER_IDENTITY,
+      iss:         KORE_CLIENT_ID,
+      aud:         KORE_API_BASE,
+      iat:         now,
+      exp:         now + 3600,
+      isAnonymous: false
+    };
+
+    const headerB64  = textToBase64url(JSON.stringify(jwtHeader));
+    const payloadB64 = textToBase64url(JSON.stringify(jwtPayload));
+    const signingInput = `${headerB64}.${payloadB64}`;
+
+    const hmacKey = await subtle.importKey(
+      'raw',
+      new TextEncoder().encode(KORE_CLIENT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const signature = await subtle.sign('HMAC', hmacKey, new TextEncoder().encode(signingInput));
+    const signedJWT = `${signingInput}.${base64urlEncode(signature)}`;
+
+    // 2. Import RSA public key for JWE key-wrap (RSA-OAEP-256)
+    const rsaKey = await subtle.importKey(
+      'jwk',
+      JWE_PUBLIC_KEY_JWK,
+      { name: 'RSA-OAEP', hash: 'SHA-256' },
+      false,
+      ['encrypt']
+    );
+
+    // 3. Generate a random 256-bit Content Encryption Key (CEK) for AES-CBC
+    const cek = await subtle.generateKey(
+      { name: 'AES-CBC', length: 256 },
+      true,
+      ['encrypt']
+    );
+    const cekRaw = await subtle.exportKey('raw', cek);
+
+    // AES-CBC-256 uses a 256-bit key; for A128CBC-HS256 the CEK is 256 bits split:
+    // first 128 bits = MAC key, last 128 bits = encryption key
+    // For simplicity we use the full 256-bit key for AES-CBC (A256CBC-HS512 variant)
+    // Kore.ai accepts A128CBC-HS256 — use a 256-bit CEK split accordingly
+    const cekBytes = new Uint8Array(cekRaw);
+    const macKey   = cekBytes.slice(0, 16);   // first 128 bits
+    const encKey   = cekBytes.slice(16, 32);  // last 128 bits
+
+    // 4. Wrap the CEK with RSA-OAEP-256
+    const wrappedCEK = await subtle.encrypt({ name: 'RSA-OAEP' }, rsaKey, cekBytes);
+
+    // 5. Encrypt the signed JWT (plaintext) with AES-128-CBC using encKey
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const encryptionKey = await subtle.importKey(
+      'raw', encKey, { name: 'AES-CBC', length: 128 }, false, ['encrypt']
+    );
+    const plaintextBytes = new TextEncoder().encode(signedJWT);
+    const ciphertext = await subtle.encrypt(
+      { name: 'AES-CBC', iv },
+      encryptionKey,
+      plaintextBytes
+    );
+
+    // 6. Compute HMAC-SHA256 authentication tag (A128CBC-HS256 spec §2.6)
+    const jweProtectedHeader = base64urlEncode(
+      new TextEncoder().encode(JSON.stringify({
+        alg: 'RSA-OAEP-256',
+        enc: 'A128CBC-HS256',
+        kid: JWE_PUBLIC_KEY_JWK.kid
+      }))
+    );
+    const aadBytes      = new TextEncoder().encode(jweProtectedHeader);
+    const macInputBytes = new Uint8Array([
+      ...aadBytes,
+      ...iv,
+      ...new Uint8Array(ciphertext),
+      // AL: length of AAD in bits as a big-endian 64-bit integer
+      ...new Uint8Array(8).fill(0).map((_, i) => i === 7 ? (aadBytes.length * 8) & 0xff : 0)
+    ]);
+
+    const macKeyObj = await subtle.importKey(
+      'raw', macKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const fullMac = await subtle.sign('HMAC', macKeyObj, macInputBytes);
+    // Use only first 16 bytes of HMAC-SHA256 as the auth tag
+    const authTag = new Uint8Array(fullMac).slice(0, 16);
+
+    // 7. Assemble JWE compact serialisation
+    const jwe = [
+      jweProtectedHeader,
+      base64urlEncode(wrappedCEK),
+      base64urlEncode(iv),
+      base64urlEncode(ciphertext),
+      base64urlEncode(authTag)
+    ].join('.');
+
+    return jwe;
+  }
+
+  addEventListener("load", async () => {
     try {
       if (typeof KoreChatSDK === 'undefined') {
         console.warn('Kore.ai SDK nicht geladen');
@@ -1364,23 +1501,24 @@ render();
       }
 
       const botOptions = KoreChatSDK.chatConfig.botOptions;
-      botOptions.koreAPIUrl        = 'https://usaz-prd-platform.kore.ai/api/';
-      botOptions.koreSpeechAPIUrl  = 'https://usaz-prd-platform.kore.ai/api/';
-      botOptions.bearer            = '';
-      botOptions.botInfo           = {
-        chatBot:   'Stihl',
-        taskBotId: 'st-da8db074-0fe4-55a8-8e6c-d31ecb2c5e88'
-      };
-      botOptions.clientId          = 'cs-c36037e1-d5ca-54c9-a382-e8fdfede17a5';
-      botOptions.clientSecret      = 'A+YORHIjCDaKrkiKC5rIlPKehqS9OH+ZyVxjaHF7ClU=';
-      botOptions.userIdentity      = 'demo-user@stihl.de';  // any stable identifier for the session
-      botOptions.accountId         = '6a903f742aa33e385d9e1b34';
+      botOptions.koreAPIUrl       = KORE_API_BASE;
+      botOptions.koreSpeechAPIUrl = KORE_API_BASE;
+      botOptions.bearer           = '';
+      botOptions.botInfo          = { chatBot: KORE_BOT_NAME, taskBotId: KORE_BOT_ID };
+      botOptions.clientId         = KORE_CLIENT_ID;
+      botOptions.clientSecret     = KORE_CLIENT_SECRET;
+      botOptions.userIdentity     = KORE_USER_IDENTITY;
+      botOptions.accountId        = KORE_ACCOUNT_ID;
+      botOptions.JWTUrl           = KORE_API_BASE + 'oAuth/token/jwtgrant';
 
-      // JWT grant — use Kore.ai anonymous grant (no external JWT server needed)
-      botOptions.JWTUrl            = 'https://usaz-prd-platform.kore.ai/api/oAuth/token/jwtgrant';
-      botOptions.API_KEY_CONFIG    = {
-        bootstrapURL: 'https://usaz-prd-platform.kore.ai/api/platform/websdk',
-        KEY: 'e83a73c7ec024bc6be1237e59a2d9142b062a87f31a14ee2905eb99869dff65bstda'
+      // Provide a getJWTToken callback so the SDK requests a fresh token on demand
+      botOptions.getJWTToken = (callback) => {
+        generateKoreJWT()
+          .then(token => callback(token))
+          .catch(err => {
+            console.error('JWT-Generierung fehlgeschlagen:', err);
+            callback(null);
+          });
       };
 
       new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
