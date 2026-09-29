@@ -1367,14 +1367,8 @@ render();
   KoreChatSDK.chatConfig.botOptions.accountId = '6672c472ff0b8a7c305caf99';
   KoreChatSDK.chatConfig.botOptions.userIdentity = 'demo-user@stihl.de';
   KoreChatSDK.chatConfig.botOptions.JWTUrl = '/api/jwt-token';
+  KoreChatSDK.chatConfig.botOptions.openChatWindow = false;
   new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
-
-  // After SDK renders, boost z-index on whatever it injected
-  setTimeout(function() {
-    document.querySelectorAll('[id*="kore"],[class*="kore"],[id*="Kore"],[class*="Kore"]').forEach(function(el) {
-      el.style.setProperty('z-index', '9999', 'important');
-    });
-  }, 2000);
 </script>
 
 </body>
