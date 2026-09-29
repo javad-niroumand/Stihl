@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="de-DE">
 <head>
@@ -1359,10 +1358,30 @@ render();
 <script>
   addEventListener("load", () => {
     try {
-      KoreChatSDK.chatConfig.botOptions.koreAPIUrl = 'https://usaz-prd-platform.kore.ai/api/';
-      KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.bootstrapURL = 'https://usaz-prd-platform.kore.ai/api/platform/websdk';
-      KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.KEY = 'e83a73c7ec024bc6be1237e59a2d9142b062a87f31a14ee2905eb99869dff65bstda';
-      new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
+      if (typeof KoreChatSDK === 'undefined') {
+        console.warn('Kore.ai SDK not loaded');
+        return;
+      }
+      // Build config from scratch — do not mutate nested sub-properties
+      // that may not exist yet on the default chatConfig object
+      const botOptions = {
+        koreAPIUrl: 'https://usaz-prd-platform.kore.ai/api/',
+        API_KEY_CONFIG: {
+          bootstrapURL: 'https://usaz-prd-platform.kore.ai/api/platform/websdk',
+          KEY: 'e83a73c7ec024bc6be1237e59a2d9142b062a87f31a14ee2905eb99869dff65bstda'
+        }
+      };
+
+      // Merge into SDK's chatConfig, preserving any defaults it ships with
+      const cfg = KoreChatSDK.chatConfig || {};
+      cfg.botOptions = Object.assign({}, cfg.botOptions || {}, botOptions);
+      cfg.botOptions.API_KEY_CONFIG = Object.assign(
+        {},
+        (cfg.botOptions.API_KEY_CONFIG || {}),
+        botOptions.API_KEY_CONFIG
+      );
+
+      new KoreChatSDK.chatWindow().show(cfg);
     } catch(e) {
       console.warn('Kore.ai SDK konnte nicht initialisiert werden:', e);
     }
