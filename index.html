@@ -1353,24 +1353,20 @@ renderGrid();
 render();
 </script>
 
-<!-- Kore.ai Web SDK Chat Widget (embed code from dashboard) -->
+<!-- Kore.ai Web SDK Chat Widget -->
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
 <script>
-  // ── Kore.ai credentials ──────────────────────────────────────────────────
-  const KORE_CLIENT_ID     = 'cs-c36037e1-d5ca-54c9-a382-e8fdfede17a5';
-  const KORE_CLIENT_SECRET = 'A+YORHIjCDaKrkiKC5rIlPKehqS9OH+ZyVxjaHF7ClU=';
-  const KORE_BOT_ID        = 'st-da8db074-0fe4-55a8-8e6c-d31ecb2c5e88';
-  const KORE_BOT_NAME      = 'Stihl';
-  const KORE_ACCOUNT_ID    = '6a903f742aa33e385d9e1b34';
-  const KORE_USER_IDENTITY = 'demo-user@stihl.de';
-  const KORE_API_BASE      = 'https://usaz-prd-platform.kore.ai/api/';
-  // bootstrap KEY from Kore.ai Web Client Details page
-  const KORE_SDK_KEY       = 'e83a73c7ec024bc6be1237e59a2d9142b062a87f31a14ee2905eb99869dff65bstda';
-
-  // Matches the embed code from Kore.ai Web Client Details exactly
-  KoreChatSDK.chatConfig.botOptions.koreAPIUrl = KORE_API_BASE;
-  KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.bootstrapURL = KORE_API_BASE + 'platform/websdk';
-  KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.KEY = KORE_SDK_KEY;
+  KoreChatSDK.chatConfig.botOptions.koreAPIUrl = 'https://platform.kore.ai/api/';
+  KoreChatSDK.chatConfig.botOptions.koreSpeechAPIUrl = 'https://platform.kore.ai/api/';
+  KoreChatSDK.chatConfig.botOptions.botInfo = {
+    chatBot: 'Stihl',
+    taskBotId: 'st-ed52582f-c86d-5489-a75f-da8eba475907'
+  };
+  KoreChatSDK.chatConfig.botOptions.clientId = 'cs-08d4f3f8-d438-59a5-a1b8-06485bc25a06';
+  KoreChatSDK.chatConfig.botOptions.clientSecret = '3zjFW8VpjzdAzYo61n/V6QJwIBX2cgUdp3+vYlRjjAA=';
+  KoreChatSDK.chatConfig.botOptions.accountId = '6672c472ff0b8a7c305caf99';
+  KoreChatSDK.chatConfig.botOptions.userIdentity = 'demo-user@stihl.de';
+  KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.KEY = 'cf7edca1dbd54295b6ba041ce4a33d9eaa0c70a98cba4176a6c94f2c9085f618sted';
   new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
 </script>
 
