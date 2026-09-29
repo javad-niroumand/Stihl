@@ -1356,23 +1356,14 @@ render();
 <!-- Kore.ai Web SDK Chat Widget -->
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
 <style>
-  /* Keep widget collapsed on load — only the bubble shows */
-  #kore-chat-window,
-  .kore-chat-window,
-  [id^="kore-"] .chat-window-container,
-  .chat-window-container { display: none !important; }
-  #kore-chat-window.kore-chat-open,
-  .kore-chat-window.kore-chat-open,
-  .chat-window-container.open { display: block !important; }
-
-  /* Ensure Kore.ai widget panel sits above ALL page elements (cart-drawer is z-index:80) */
+  /* Ensure Kore.ai widget sits above ALL page elements (cart-drawer is z-index:80) */
   #kore-chat-window,
   .kore-chat-window,
   .kore-widget-wrap,
   .kore-chat-container,
   [class*="kore-chat"],
   [id*="kore-chat"],
-  [class*="kore-widget"] { z-index: 9999 !important; position: relative; }
+  [class*="kore-widget"] { z-index: 9999 !important; }
 </style>
 <script>
   KoreChatSDK.chatConfig.botOptions.koreAPIUrl = 'https://platform.kore.ai/api/';
