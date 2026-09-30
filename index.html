@@ -1064,10 +1064,9 @@ function applyAgentData(raw) {
     const v = String(raw.cartProduct).trim().toLowerCase();
     if (v !== lastRemote.cartProduct) lastRemote.cartProduct = v;
   }
-  if ((raw.addToCart === true || raw.addToCart === 'true') && !addToCartFired) {
+  if (raw.addToCart === true || raw.addToCart === 'true') {
     const key = lastRemote.cartProduct || '';
     if (KEYS.includes(key)) {
-      addToCartFired = true;
       state.cartItems = [...state.cartItems, key];
       lastAdded = key;
       changed.add('cart');
@@ -1361,8 +1360,9 @@ document.getElementById('toggle-all').addEventListener('click', () => { showAll 
    ------------------------------------------------------------------ */
 const MOCK_API_URL = 'https://6797e9d9c2c861de0c6e6bdf.mockapi.io/search/1';
 const POLL_INTERVAL_MS = 3000;
-let lastActiveState = false;
-let addToCartFired = false;  // fire addToCart only once per page load
+
+// Track last seen state of each trigger to detect false→true edges
+let lastSeen = { active: false, compare: false, addToCart: false };
 
 function setApiStatus(text, color) {
   const dot = document.getElementById('api-dot');
@@ -1371,46 +1371,63 @@ function setApiStatus(text, color) {
   if (txt) txt.textContent = text;
 }
 
+function putReset(data, fields) {
+  const body = { ...data };
+  fields.forEach(f => body[f] = false);
+  fetch(MOCK_API_URL, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).catch(e => console.warn('MockAPI reset error:', e));
+}
+
 async function pollMockAPI() {
   try {
     const res = await fetch(MOCK_API_URL);
     if (!res.ok) { setApiStatus('API-Fehler ' + res.status, '#D0342C'); return; }
     const data = await res.json();
 
-    if (data.active === true && lastActiveState === false) {
-      // Edge: false → true → Daten übernehmen; active bleibt true auf dem Server bis neue Seite lädt
-      lastActiveState = true;
+    // --- active trigger ---
+    if (data.active === true && lastSeen.active === false) {
+      lastSeen.active = true;
       setApiStatus('Agentendaten empfangen', '#749F4A');
       applyAgentData(data);
-
-    } else if (data.active === false && lastActiveState === true) {
-      // Edge: true → false → bereit für nächsten Trigger
-      lastActiveState = false;
+    } else if (data.active === false) {
+      lastSeen.active = false;
       setApiStatus('Warte auf Agent…', '#9a9a9a');
     }
+
+    // --- compare trigger: fires independently as soon as it turns true ---
+    if (data.compare === true && lastSeen.compare === false) {
+      lastSeen.compare = true;
+      // Load compareA/B/C into lastRemote so applyAgentData can use them
+      ['compareA','compareB','compareC'].forEach(k => { if (data[k]) lastRemote[k] = String(data[k]).trim().toLowerCase(); });
+      applyAgentData({ ...data, active: false }); // apply just the compare fields
+      putReset(data, ['compare']);
+    } else if (data.compare === false) {
+      lastSeen.compare = false;
+    }
+
+    // --- addToCart trigger: fires independently as soon as it turns true ---
+    if (data.addToCart === true && lastSeen.addToCart === false) {
+      lastSeen.addToCart = true;
+      if (data.cartProduct) lastRemote.cartProduct = String(data.cartProduct).trim().toLowerCase();
+      applyAgentData({ ...data, active: false }); // apply just the cart fields
+      putReset(data, ['addToCart']);
+    } else if (data.addToCart === false) {
+      lastSeen.addToCart = false;
+    }
+
   } catch(e) {
     console.warn('MockAPI poll error:', e);
     setApiStatus('Verbindungsfehler', '#D0342C');
   }
 }
 
-// On page load: read current state, apply if active=true, then reset all triggers to false
+// On page load: reset all triggers to false, then start polling
 fetch(MOCK_API_URL)
   .then(r => r.json())
-  .then(data => {
-    // If bot already set active=true before page loaded, apply it now
-    if (data.active === true) {
-      lastActiveState = true;
-      setApiStatus('Agentendaten empfangen', '#749F4A');
-      applyAgentData(data);
-    }
-    // Reset all triggers to false
-    return fetch(MOCK_API_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, active: false, compare: false, addToCart: false })
-    });
-  })
+  .then(data => putReset(data, ['active', 'compare', 'addToCart']))
   .catch(e => console.warn('MockAPI init error:', e))
   .finally(() => {
     setInterval(pollMockAPI, POLL_INTERVAL_MS);
