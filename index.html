@@ -1033,6 +1033,14 @@ function applyAgentData(raw) {
     const list = [...new Set(['compareA', 'compareB', 'compareC'].map(k => lastRemote[k]).filter(v => KEYS.includes(v)))];
     state.compare = list; state.selected = list.slice(); changed.add('compare');
   }
+  // Auto-open compare panel if "compare" trigger is true and we have products to compare
+  if (raw.compare === true || raw.compare === 'true') {
+    const list = [...new Set(['compareA', 'compareB', 'compareC'].map(k => (lastRemote[k] || '')).filter(v => KEYS.includes(v)))];
+    if (list.length >= 2) {
+      state.compare = list; state.selected = list.slice();
+      state.view = 'compare'; changed.add('compare'); changed.add('view');
+    }
+  }
   if (!isEmpty(raw.focus)) {
     const v = String(raw.focus).trim().toLowerCase();
     if (v !== lastRemote.focus) { lastRemote.focus = v; state.focus = toList(v, ROW_IDS); changed.add('focus'); }
@@ -1297,6 +1305,7 @@ document.getElementById('toggle-all').addEventListener('click', () => { showAll 
      "compareA": "",           // Produkt-Key für Vergleichsposition A
      "compareB": "",           // Produkt-Key für Vergleichsposition B
      "compareC": "",           // Produkt-Key für Vergleichsposition C (optional)
+     "compare": false,         // TRIGGER: true → Vergleichspanel sofort öffnen (braucht compareA+B)
      "focus": "",              // Kommagetrennte Spec-Felder, z.B. "price,weight"
      "view": "",               // Zielansicht: "products" | "compare" | "cart"
      "cartItems": ""           // Kommagetrennte Produkt-Keys für den Warenkorb
