@@ -1059,14 +1059,15 @@ function applyAgentData(raw) {
       state.cartItems = v; changed.add('cart');
     }
   }
-  // cartProduct: which product to add (key), addToCart: true fires it
+  // cartProduct: which product to add (key), addToCart: true fires it (once per page load)
   if (!isEmpty(raw.cartProduct)) {
     const v = String(raw.cartProduct).trim().toLowerCase();
     if (v !== lastRemote.cartProduct) lastRemote.cartProduct = v;
   }
-  if (raw.addToCart === true || raw.addToCart === 'true') {
+  if ((raw.addToCart === true || raw.addToCart === 'true') && !addToCartFired) {
     const key = lastRemote.cartProduct || '';
     if (KEYS.includes(key)) {
+      addToCartFired = true;
       state.cartItems = [...state.cartItems, key];
       lastAdded = key;
       changed.add('cart');
@@ -1151,7 +1152,7 @@ function render(changed = new Set()) {
   renderCart(changed.has('cart'));
 
   // Seitenpanel: öffnen, wenn etwas hinzugefügt wurde, schließen bei jedem anderen Wechsel
-  if (changed.has('added') && state.view !== 'cart') openDrawer();
+  if (changed.has('added')) { state.view = 'products'; openDrawer(); }
   else if (changed.has('view') || changed.has('highlight') || changed.has('compare')) closeDrawer();
 }
 
@@ -1288,9 +1289,29 @@ function renderCart(bump) {
 /* ---------- Lokale Klicks (nur Ansicht, kein Seitenwechsel) ---------- */
 document.querySelectorAll('a[href="#"]').forEach(a => a.addEventListener('click', e => e.preventDefault()));
 document.getElementById('cart-link').addEventListener('click', e => { e.preventDefault(); setView('cart'); });
-document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => { closeDrawer(); setView(b.dataset.goto); }));
+document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => {
+  const wasCompare = state.view === 'compare';
+  closeDrawer(); setView(b.dataset.goto);
+  if (wasCompare) resetCompareOnServer();
+}));
 document.querySelectorAll('[data-close-drawer]').forEach(b => b.addEventListener('click', closeDrawer));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDrawer(); if (state.view === 'compare') setView('products'); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeDrawer();
+    if (state.view === 'compare') { setView('products'); resetCompareOnServer(); }
+  }
+});
+
+function resetCompareOnServer() {
+  fetch(MOCK_API_URL)
+    .then(r => r.json())
+    .then(data => fetch(MOCK_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, compare: false })
+    }))
+    .catch(e => console.warn('MockAPI compare reset error:', e));
+}
 
 // Checkboxen: bis zu 3 Motorsägen selbst auswählen
 document.getElementById('product-grid').addEventListener('change', e => {
@@ -1333,6 +1354,7 @@ document.getElementById('toggle-all').addEventListener('click', () => { showAll 
 const MOCK_API_URL = 'https://6797e9d9c2c861de0c6e6bdf.mockapi.io/search/1';
 const POLL_INTERVAL_MS = 3000;
 let lastActiveState = false;
+let addToCartFired = false;  // fire addToCart only once per page load
 
 function setApiStatus(text, color) {
   const dot = document.getElementById('api-dot');
@@ -1348,20 +1370,13 @@ async function pollMockAPI() {
     const data = await res.json();
 
     if (data.active === true && lastActiveState === false) {
-      // Edge: false → true  →  Daten übernehmen und Trigger zurücksetzen
+      // Edge: false → true → Daten übernehmen; active bleibt true auf dem Server bis neue Seite lädt
       lastActiveState = true;
       setApiStatus('Agentendaten empfangen', '#749F4A');
       applyAgentData(data);
 
-      // Trigger zurücksetzen (PUT statt PATCH – MockAPI unterstützt PUT besser)
-      fetch(MOCK_API_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, active: false })
-      }).catch(e => console.warn('MockAPI reset error:', e));
-
     } else if (data.active === false && lastActiveState === true) {
-      // Edge: true → false  →  bereit für nächsten Trigger
+      // Edge: true → false → bereit für nächsten Trigger
       lastActiveState = false;
       setApiStatus('Warte auf Agent…', '#9a9a9a');
     }
@@ -1371,8 +1386,19 @@ async function pollMockAPI() {
   }
 }
 
-setInterval(pollMockAPI, POLL_INTERVAL_MS);
-pollMockAPI();
+// On page load: reset all triggers to false before polling starts
+fetch(MOCK_API_URL)
+  .then(r => r.json())
+  .then(data => fetch(MOCK_API_URL, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...data, active: false, compare: false, addToCart: false })
+  }))
+  .catch(e => console.warn('MockAPI init reset error:', e))
+  .finally(() => {
+    setInterval(pollMockAPI, POLL_INTERVAL_MS);
+    pollMockAPI();
+  });
 
 renderGrid();
 render();
