@@ -1359,6 +1359,7 @@ render();
   Object.keys(localStorage).forEach(function(key) {
     if (key.toLowerCase().includes('kore')) localStorage.removeItem(key);
   });
+
 </script>
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
 <script>
@@ -1371,7 +1372,8 @@ render();
   KoreChatSDK.chatConfig.botOptions.clientId = 'cs-08d4f3f8-d438-59a5-a1b8-06485bc25a06';
   KoreChatSDK.chatConfig.botOptions.clientSecret = '3zjFW8VpjzdAzYo61n/V6QJwIBX2cgUdp3+vYlRjjAA=';
   KoreChatSDK.chatConfig.botOptions.accountId = '6672c472ff0b8a7c305caf99';
-  KoreChatSDK.chatConfig.botOptions.userIdentity = 'demo-user@stihl.de';
+  // Use a unique identity per session so Kore.ai starts with no history
+  KoreChatSDK.chatConfig.botOptions.userIdentity = 'demo-user-' + Date.now() + '@stihl.de';
   KoreChatSDK.chatConfig.botOptions.isAnonymous = true;
   KoreChatSDK.chatConfig.botOptions.API_KEY_CONFIG.KEY = 'cf7edca1dbd54295b6ba041ce4a33d9eaa0c70a98cba4176a6c94f2c9085f618sted';
   new KoreChatSDK.chatWindow().show(KoreChatSDK.chatConfig);
