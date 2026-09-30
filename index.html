@@ -1152,7 +1152,7 @@ function render(changed = new Set()) {
   renderCart(changed.has('cart'));
 
   // Seitenpanel: öffnen, wenn etwas hinzugefügt wurde, schließen bei jedem anderen Wechsel
-  if (changed.has('added')) { state.view = 'products'; openDrawer(); }
+  if (changed.has('added')) openDrawer();
   else if (changed.has('view') || changed.has('highlight') || changed.has('compare')) closeDrawer();
 }
 
@@ -1249,6 +1249,14 @@ function scrollToFocus() {
 function openDrawer() {
   const p = CATALOG[lastAdded];
   if (!p) return;
+  // Always show products view so drawer slides in over the product page
+  if (state.view !== 'products') {
+    state.view = 'products';
+    document.getElementById('view-products').hidden = false;
+    document.getElementById('view-cart').hidden = true;
+    document.getElementById('compare-overlay').hidden = true;
+    document.body.style.overflow = '';
+  }
   const total = state.cartItems.reduce((s, k) => s + CATALOG[k].price, 0);
   document.getElementById('drawer-item').innerHTML =
     `<img src="${p.image}" alt="${p.name}"><div><div class="n">${p.name}</div><div class="s">${p.drive} · ${p.subline}</div><div class="pr">${p.priceText}</div></div>`;
@@ -1386,15 +1394,24 @@ async function pollMockAPI() {
   }
 }
 
-// On page load: reset all triggers to false before polling starts
+// On page load: read current state, apply if active=true, then reset all triggers to false
 fetch(MOCK_API_URL)
   .then(r => r.json())
-  .then(data => fetch(MOCK_API_URL, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...data, active: false, compare: false, addToCart: false })
-  }))
-  .catch(e => console.warn('MockAPI init reset error:', e))
+  .then(data => {
+    // If bot already set active=true before page loaded, apply it now
+    if (data.active === true) {
+      lastActiveState = true;
+      setApiStatus('Agentendaten empfangen', '#749F4A');
+      applyAgentData(data);
+    }
+    // Reset all triggers to false
+    return fetch(MOCK_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, active: false, compare: false, addToCart: false })
+    });
+  })
+  .catch(e => console.warn('MockAPI init error:', e))
   .finally(() => {
     setInterval(pollMockAPI, POLL_INTERVAL_MS);
     pollMockAPI();
