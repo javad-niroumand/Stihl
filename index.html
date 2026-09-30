@@ -1354,6 +1354,12 @@ render();
 </script>
 
 <!-- Kore.ai Web SDK Chat Widget -->
+<script>
+  // Clear all Kore.ai chat history from localStorage on every page load
+  Object.keys(localStorage).forEach(function(key) {
+    if (key.toLowerCase().includes('kore')) localStorage.removeItem(key);
+  });
+</script>
 <script src='https://cdn.jsdelivr.net/npm/kore-web-sdk@11.29.0/dist/umd/kore-web-sdk-umd-chat.min.js'></script>
 <script>
   KoreChatSDK.chatConfig.botOptions.koreAPIUrl = 'https://platform.kore.ai/api/';
