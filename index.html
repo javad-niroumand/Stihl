@@ -1059,6 +1059,20 @@ function applyAgentData(raw) {
       state.cartItems = v; changed.add('cart');
     }
   }
+  // cartProduct: which product to add (key), addToCart: true fires it
+  if (!isEmpty(raw.cartProduct)) {
+    const v = String(raw.cartProduct).trim().toLowerCase();
+    if (v !== lastRemote.cartProduct) lastRemote.cartProduct = v;
+  }
+  if (raw.addToCart === true || raw.addToCart === 'true') {
+    const key = lastRemote.cartProduct || '';
+    if (KEYS.includes(key)) {
+      state.cartItems = [...state.cartItems, key];
+      lastAdded = key;
+      changed.add('cart');
+      changed.add('added');
+    }
+  }
 
   if (changed.size) render(changed);
 }
@@ -1308,7 +1322,9 @@ document.getElementById('toggle-all').addEventListener('click', () => { showAll 
      "compare": false,         // TRIGGER: true → Vergleichspanel sofort öffnen (braucht compareA+B)
      "focus": "",              // Kommagetrennte Spec-Felder, z.B. "price,weight"
      "view": "",               // Zielansicht: "products" | "compare" | "cart"
-     "cartItems": ""           // Kommagetrennte Produkt-Keys für den Warenkorb
+     "cartItems": "",          // Kommagetrennte Produkt-Keys für den Warenkorb (setzt gesamten Warenkorb)
+     "cartProduct": "",        // Produkt-Key der in den Warenkorb gelegt werden soll, z.B. "ms_180"
+     "addToCart": false        // TRIGGER: true → cartProduct in Warenkorb legen + Drawer öffnen
    }
    Ablauf: Agent setzt gewünschte Felder + active=true → Seite erkennt
    den Wechsel false→true, ruft applyAgentData() auf und setzt active
